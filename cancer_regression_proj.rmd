@@ -1,0 +1,194 @@
+---
+title: 'MATH 257 Project #1'
+author: "Will Steuk"
+date: "2/18/2021"
+output: html_document
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Packages
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tibble)
+library(readr)
+```
+
+## Data Import/ Formatting
+
+```{r}
+## Read data
+oh_cases <- read.csv("https://remiller1450.github.io/data/Ohio_Counties_Cancer.csv")
+mdw_data <- read.csv("https://remiller1450.github.io/data/Midwest_Counties.csv")
+
+## Delete necessary rows and columns 
+oh_cases[27:242] <- NULL 
+oh_cases <- oh_cases[-c(89),]
+colnames(oh_cases)[1] <- "county"
+
+## Capitalize W in Van Wert in mdw_data
+mdw_data$county[358] = "Van Wert"
+
+## Only OH data
+oh_data <- filter(mdw_data, state == 'OH')
+data <- left_join(x = oh_cases, y = oh_data, by = 'county')
+
+data <- subset(data, select=-c(28))
+```
+
+## Create Columns for Data Exploration
+
+```{r}
+## Use cutting for a numerical confounding variable, find cutoffs
+quantile(data$poptotal, 0.33) ## Find first third of data cutoff
+quantile(data$poptotal, 0.66) ## Find second third of data cutoff
+
+quantile(data$popdensity, 0.33) ## Find first third of data cutoff
+quantile(data$popdensity, 0.66) ## Find second third of data cutoff
+
+## Create categorical column for total population
+data$poptotal <- as.numeric(gsub(",","",data$poptotal))
+data$poptotal_cat <- cut(data$poptotal, breaks = c(-Inf, 37035.52, 80663.84, Inf))
+levels(data$poptotal_cat) <- c("Small","Midsize","Large")
+table(data$poptotal_cat)
+
+## Create categorical column for population density
+data$popdensity <- as.numeric(gsub(",","",data$popdensity))
+data$popdensity_cat <- cut(data$popdensity, breaks = c(-Inf, 1401.92, 2622.234, Inf))
+levels(data$popdensity_cat) <- c("low","med","high")
+table(data$popdensity_cat)
+
+## Change existing columns to numeric
+data$Breast <- as.numeric(gsub(",","",data$Breast))
+data$Total <- as.numeric(gsub(",","",data$Total))
+data$percwhite <- as.numeric(gsub(",","",data$percwhite))
+data$percblack <- as.numeric(gsub(",","",data$percblack))
+data$Prostate <- as.numeric(gsub(",","",data$Prostate))
+
+## Create numeric percentage columns for ecploration
+data$perc_breast <- as.numeric(gsub(",","",data$Breast))/as.numeric(gsub(",","",data$Total)) * 100
+data$perc_pros <- as.numeric(gsub(",","",data$Prostate))/as.numeric(gsub(",","",data$Total))
+data$perc_colon <- as.numeric(gsub(",","",data$Colon...Rectum))/as.numeric(gsub(",","",data$Total))
+data$perc_bladder <- as.numeric(gsub(",","",data$Bladder))/as.numeric(gsub(",","",data$Total))
+data$perc_brain <- as.numeric(gsub(",","",data$Brain.and.Other.CNS))/as.numeric(gsub(",","",data$Total))
+data$perc_luk <- as.numeric(gsub(",","",data$Leukemia))/as.numeric(gsub(",","",data$Total))
+data$perc_ov <- as.numeric(gsub(",","",data$Ovary))/as.numeric(gsub(",","",data$Total))
+data$perc_thyroid <- as.numeric(gsub(",","",data$Thyroid))/as.numeric(gsub(",","",data$Total))
+data$perc_eso <- as.numeric(gsub(",","",data$Esophagus))/as.numeric(gsub(",","",data$Total))
+data$perc_liv<- as.numeric(gsub(",","",data$Liver...Intrahepatic.Bile.Duct))/as.numeric(gsub(",","",data$Total))
+data$perc_lung <- as.numeric(gsub(",","",data$Lung.and.Bronchus))/as.numeric(gsub(",","",data$Total))
+data$perc_pancreas <- as.numeric(gsub(",","",data$Pancreas))/as.numeric(gsub(",","",data$Total))
+data$perc_cer <- as.numeric(gsub(",","",data$Cervix))/as.numeric(gsub(",","",data$Total))
+data$perc_hod <- as.numeric(gsub(",","",data$Hodgkins.Lymphoma))/as.numeric(gsub(",","",data$Total))
+data$perc_lar <- as.numeric(gsub(",","",data$Larynx))/as.numeric(gsub(",","",data$Total))
+data$perc_mel <- as.numeric(gsub(",","",data$Melanoma.of.Skin))/as.numeric(gsub(",","",data$Total))
+data$perc_test <- as.numeric(gsub(",","",data$Testis))/as.numeric(gsub(",","",data$Total))
+data$perc_ut <- as.numeric(gsub(",","",data$Uterus))/as.numeric(gsub(",","",data$Total))
+
+```
+
+## Correlations and Exploration
+
+```{r}
+## Correlation Matrix
+data_test <- subset(data, select=-c(1,52,53,54))
+data_test <- apply(data_test, 2, parse_number)
+correlations = cor(data_test)
+
+## Plots all variables versus perc_breast
+for(i in 1:(ncol(data_test)-1)) {
+  plot(data$perc_breast,data_test[,i+1],ylab=colnames(data)[55],xlab=colnames(data_test)[i+1],pch=20,col='blue',main=paste('Plot number',i))
+  }
+```
+
+## Data Visualization
+
+```{r}
+
+## Two primary graphs used to explore thew two primary variable choices
+
+## Percent college and percent breast cancer
+ggplot(data, aes(x = percollege, y = perc_breast)) + geom_point(color = "blue") + xlab("Population with a College Degree (%)") + ylab("Breast Cancer Cases (%)") + ggtitle("College Degree(%) versus Breast Cancer(%)") + theme(text = element_text(size=15))
+
+## Percent elderly pop under poverty line and percent breast cancer
+ggplot(data, aes(x = data$percelderlypoverty, y = perc_breast)) + geom_point(color = "blue") + xlab("Percent of Elderly Under Poverty Line (%)") + ylab("Breast Cancer Cases (%)") + ggtitle("Elderly Poverty(%) versus Breast Cancer(%)") + theme(text = element_text(size=15))
+
+## Further data exploration
+
+## Percent college and percent breast cancer with pop total as confounding variable
+ggplot(data, aes(x = percollege, y = perc_breast)) + geom_point() + facet_wrap(~poptotal_cat)
+
+## Total population and percent breast cancer
+ggplot(data, aes(x = poptotal, y = perc_breast)) + geom_point() 
+
+```
+
+## Linear Fitting, Model Exploration
+
+```{r}
+## TEST Model (elderly poverty predicts breast cancer percentage)
+model_1 <- lm(perc_breast ~ percelderlypoverty, data = data)
+summary(model_1)
+plot(model_1)
+xgrid <- data.frame(percelderlypoverty = seq(min(data$percelderlypoverty), max(data$percelderlypoverty), length.out = 27))
+## Use "predict" to get model-based predictions and prediction intervals
+preds <- predict(model_1, newdata = xgrid, interval = "prediction", level = .90)
+## Base R plotting 
+plot(data$percelderlypoverty, data$perc_breast) ## Scatterplot
+abline(a = model_1$coefficients[1], b = model_1$coefficients[2]) ## Line equation
+lines(xgrid$percelderlypoverty, preds[,2], lty = 2)  ## Prediction lower band
+lines(xgrid$percelderlypoverty, preds[,3], lty = 2)  ## Prediction upper band
+
+rmse_elderly <- sqrt(1/nrow(data)*sum((data$perc_breast - model_1$fitted.values)^2))
+rmse_elderly
+
+## TEST model (total population predicts breast cancer percentage)
+
+model_2 <- lm(perc_breast ~ poptotal, data = data)
+summary(model_2)
+plot(model_2)
+xgrid <- data.frame(poptotal = seq(min(data$poptotal), max(data$poptotal), length.out = 27))
+## Use "predict" to get model-based predictions and prediction intervals
+preds <- predict(model_2, newdata = xgrid, interval = "prediction", level = .90)
+## Base R plotting 
+plot(data$poptotal, data$perc_breast) ## Scatterplot
+abline(a = model_2$coefficients[1], b = model_2$coefficients[2]) ## Line equation
+lines(xgrid$poptotal, preds[,2], lty = 2)  ## Prediction lower band
+lines(xgrid$poptotal, preds[,3], lty = 2)  ## Prediction upper band
+
+rmse_poptotal <- sqrt(1/nrow(data)*sum((data$perc_breast - model_2$fitted.values)^2))
+rmse_poptotal
+
+```
+
+## Final Regression Model
+
+```{r}
+## college degree percentage predicts breast cancer percentage
+
+model_3 <- lm(perc_breast ~ percollege, data = data)
+summary(model_3)
+res = residuals(model_3)
+sse_ = sum(res^2)
+sse_
+plot(model_3)
+xgrid <- data.frame(percollege = seq(min(data$percollege), max(data$percollege), length.out = 27))
+## Use "predict" to get model-based predictions and prediction intervals
+preds <- predict(model_3, newdata = xgrid, interval = "prediction", level = .90)
+## Main plot
+plot(data$percollege, data$perc_breast, col='deepskyblue3', pch = 16, xlab = "Population with a College Degree (%)", ylab ="Breast Cancer Cases (%)", main = 'Linear Regression: College Degree (%), Brest Cancer (%)') ## Scatterplot
+abline(a = model_3$coefficients[1], b = model_3$coefficients[2], col = 'coral2') ## Line equation
+lines(xgrid$percollege, preds[,2], lty = 2, col = 'coral')  ## Prediction lower band
+lines(xgrid$percollege, preds[,3], lty = 2, col = 'coral')  ## Prediction upper band
+
+confint((model_3))
+
+rmse_col <- sqrt(1/nrow(data)*sum((data$perc_breast - model_3$fitted.values)^2)) ## Find rmse
+```
+
+
+
